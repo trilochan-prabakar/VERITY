@@ -1,0 +1,2 @@
+event_id,format,raw_value,timestamp_kind,increment,utc_offset_byte,note
+exfat1,exfat,0x5821:0x0000,creation,5,0x84,2024-01-01 local with valid +01:00 offset

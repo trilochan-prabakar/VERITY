@@ -1,0 +1,4 @@
+event_id,format,raw_value,actual_resolution_ns,note
+apfs1,apfs,1704067200000000000,,APFS point at Unix epoch day
+ft1,filetime,133485408000000000,,FILETIME value from producer
+discord1,snowflake,0,,Discord snowflake at API epoch

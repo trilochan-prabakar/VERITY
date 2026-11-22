@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "verity-timestamps"
+version = "1.0.0"
+description = "Forensic timestamp normalization and validation"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["dfdatetime>=20221126"]
+license = {text = "MIT"}
+authors = [{name = "VERITY contributors"}]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+verity = "verity.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["verity*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
