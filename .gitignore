@@ -12,3 +12,12 @@ dist/
 # Default outputs from the README CLI examples.
 normalized.csv
 comparisons.csv
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
