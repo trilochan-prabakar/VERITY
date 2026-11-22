@@ -1,5 +1,7 @@
 import csv
 
+import pytest
+
 from verity.cli import run_csv
 
 
@@ -32,6 +34,22 @@ def test_invalid_row_is_written_as_unresolved_with_reason(tmp_path):
         row = next(csv.DictReader(stream))
     assert row["normalized_validation_status"] == "unresolved"
     assert "unsigned" in row["normalized_explanation"]
+
+
+def test_successful_normalization_includes_explanation(tmp_path):
+    source = tmp_path / "input.csv"
+    normalized = tmp_path / "normalized.csv"
+    comparisons = tmp_path / "comparisons.csv"
+    source.write_text("event_id,format,raw_value\na,snowflake,0\nb,snowflake,1\n", encoding="utf-8")
+
+    run_csv(source, normalized, comparisons)
+
+    with normalized.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert all(row["normalized_explanation"].startswith("Normalized to the closed UTC interval") for row in rows)
+    with comparisons.open(encoding="utf-8", newline="") as stream:
+        pair = next(csv.DictReader(stream))
+    assert pair["explanation"]
 
 
 def test_valid_source_outside_target_domain_retains_format_metadata(tmp_path):
@@ -72,6 +90,20 @@ def test_short_csv_row_is_reported_unresolved(tmp_path):
         row = next(csv.DictReader(stream))
     assert row["normalized_validation_status"] == "unresolved"
     assert "raw_value is required" in row["normalized_explanation"]
+
+
+def test_whitespace_only_event_id_is_rejected_with_row_number(tmp_path):
+    source = tmp_path / "input.csv"
+    source.write_text("event_id,format,raw_value\n   ,apfs,0\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="row 2.*event_id"):
+        run_csv(source, tmp_path / "normalized.csv", tmp_path / "comparisons.csv")
+
+
+def test_extra_csv_fields_are_rejected_with_row_number(tmp_path):
+    source = tmp_path / "input.csv"
+    source.write_text("event_id,format,raw_value\na,apfs,0,unexpected\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="row 2.*extra field"):
+        run_csv(source, tmp_path / "normalized.csv", tmp_path / "comparisons.csv")
 
 
 def test_metadata_column_collision_gets_a_distinct_derived_column(tmp_path):

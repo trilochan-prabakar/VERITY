@@ -34,9 +34,13 @@ def run_csv(input_path: str | Path, normalized_path: str | Path, comparisons_pat
         if reader.fieldnames is None or not {"event_id", "format", "raw_value"}.issubset(reader.fieldnames):
             raise ValueError("input CSV must have event_id, format, and raw_value columns")
         input_columns = list(reader.fieldnames)
-        rows = list(reader)
-    if len(input_columns) != len(set(input_columns)):
-        raise ValueError("input CSV column names must be unique")
+        if len(input_columns) != len(set(input_columns)):
+            raise ValueError("input CSV column names must be unique")
+        rows = []
+        for row_number, row in enumerate(reader, start=2):
+            if row.get(None):
+                raise ValueError(f"CSV row {row_number} has unexpected extra field(s)")
+            rows.append(row)
     derived_columns = {}
     occupied_columns = set(input_columns)
     for column in NORMALIZED_COLUMNS:
@@ -45,9 +49,10 @@ def run_csv(input_path: str | Path, normalized_path: str | Path, comparisons_pat
             output_column = f"verity_{output_column}"
         derived_columns[column] = output_column
         occupied_columns.add(output_column)
-    identifiers = [row.get("event_id", "") for row in rows]
-    if any(not event_id for event_id in identifiers):
-        raise ValueError("every row must have a non-empty event_id")
+    identifiers = [row.get("event_id") or "" for row in rows]
+    for row_number, event_id in enumerate(identifiers, start=2):
+        if not event_id.strip():
+            raise ValueError(f"CSV row {row_number} must have a non-empty event_id")
     if len(set(identifiers)) != len(identifiers):
         raise ValueError("event_id values must be unique")
 

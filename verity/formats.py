@@ -13,9 +13,12 @@ SNOWFLAKE_EPOCH_MS = 1_420_070_400_000
 NANOSECONDS_PER_MILLISECOND = 1_000_000
 
 
-def _integer(value: str, label: str) -> int:
+def _integer(value: str, label: str, *, allow_hex: bool = False) -> int:
     try:
-        return int(value.strip(), 0) if value.strip().lower().startswith("0x") else int(value.strip(), 10)
+        stripped = value.strip()
+        if allow_hex and stripped.lower().startswith("0x"):
+            return int(stripped, 16)
+        return int(stripped, 10)
     except (AttributeError, ValueError):
         raise ValueError(f"{label} must be an integer") from None
 
@@ -38,8 +41,8 @@ def _exfat(row: dict[str, str], resolution: int | None) -> DecodedTimestamp:
     match = re.fullmatch(r"\s*(0[xX][0-9a-fA-F]+|[0-9]+)\s*:\s*(0[xX][0-9a-fA-F]+|[0-9]+)\s*", row["raw_value"])
     if not match:
         raise ValueError("exFAT raw_value must be date_word:time_word")
-    date_word = _integer(match.group(1), "exFAT date word")
-    time_word = _integer(match.group(2), "exFAT time word")
+    date_word = _integer(match.group(1), "exFAT date word", allow_hex=True)
+    time_word = _integer(match.group(2), "exFAT time word", allow_hex=True)
     if not 0 <= date_word <= 0xffff or not 0 <= time_word <= 0xffff:
         raise ValueError("exFAT date and time words must be unsigned 16-bit values")
     year, month, day = 1980 + (date_word >> 9), (date_word >> 5) & 0xf, date_word & 0x1f
@@ -68,7 +71,7 @@ def _exfat(row: dict[str, str], resolution: int | None) -> DecodedTimestamp:
     offset_byte_raw = row.get("utc_offset_byte", "").strip()
     if not offset_byte_raw:
         raise ValueError("exFAT utc_offset_byte is required")
-    offset_byte = _integer(offset_byte_raw, "exFAT UTC offset byte")
+    offset_byte = _integer(offset_byte_raw, "exFAT UTC offset byte", allow_hex=True)
     if not 0 <= offset_byte <= 0xff:
         raise ValueError("exFAT UTC offset byte must be in 0..255")
     offset_valid = bool(offset_byte & 0x80)

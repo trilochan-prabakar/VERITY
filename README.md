@@ -10,20 +10,22 @@ VERITY targets Python 3.10 or newer and requires `dfDateTime` for APFS and FILET
 python -m pip install .
 ```
 
-To run tests, install the optional test dependency with `python -m pip install '.[test]'`, then run `python -m pytest`.
+To run tests, install the optional test dependencies with `python -m pip install '.[test]'`, then run `python -m pytest`. To report coverage, run `python -m pytest --cov=verity --cov-report=term-missing`.
 
 ## CSV input
 
-Every input CSV must have unique column names and include `event_id`, `format`, and `raw_value` columns. Each `event_id` must be non-empty and unique. Rows with missing or invalid `format` or `raw_value` values are retained as unresolved with an explanation. VERITY copies all input columns and values to the normalized CSV. Optional columns include `actual_resolution_ns` for a known source clock resolution, `timestamp_kind` for exFAT and context-specific FILETIME semantics, plus the exFAT fields described below.
+Every input CSV must have unique column names and include `event_id`, `format`, and `raw_value` columns. Each `event_id` must contain a non-whitespace character and be unique. Rows with missing or invalid `format` or `raw_value` values are retained as unresolved with an explanation. Short rows are also retained as unresolved; rows with extra CSV fields are rejected with a row-numbered error. VERITY copies all input columns and values to the normalized CSV. Optional columns include `actual_resolution_ns` for a known source clock resolution, `timestamp_kind` for exFAT and context-specific FILETIME semantics, plus the exFAT fields described below.
 
 Supported format names are `apfs`, `filetime`, `exfat`, and `snowflake` (Discord Snowflake). Values are exact integers in decimal, with optional `0x` notation for fields that permit it.
 
 | Format | `raw_value` and additional input | Storage granularity | Default normalization resolution |
 | --- | --- | ---: | ---: |
-| APFS | Signed 64-bit nanoseconds since Unix epoch | 1 ns | 1 ns |
-| NTFS FILETIME | Unsigned 64-bit count of 100 ns units since 1601-01-01 UTC; zero means not set. `0xffffffff` in an access-time field is treated as the preserve-previous-access sentinel. | 100 ns | 100 ns |
+| APFS | Signed 64-bit decimal nanoseconds since Unix epoch | 1 ns | 1 ns |
+| NTFS FILETIME | Unsigned 64-bit decimal count of 100 ns units since 1601-01-01 UTC; zero means not set. `0xffffffff` in an access-time field is treated as the preserve-previous-access sentinel. | 100 ns | 100 ns |
 | exFAT | `date_word:time_word`, each a 16-bit FAT field; decimal or `0x` notation. Requires `timestamp_kind` (`creation`, `modification`, or `access`) and `utc_offset_byte`. Creation/modification also require `increment` from 0 through 199. If the offset validity bit is clear, provide `utc_offset_minutes`. | 10 ms for creation/modification; 2 s for access | Same as storage unless `actual_resolution_ns` is supplied |
-| Discord Snowflake | Unsigned 64-bit decimal ID; timestamp uses bits 63–22 and epoch 2015-01-01 UTC. | 1 ms timestamp field | 1 ms |
+| Discord Snowflake | Unsigned 64-bit decimal ID; timestamp uses bits 63–22 and epoch 2015-01-01 UTC. Hexadecimal notation is not accepted. | 1 ms timestamp field | 1 ms |
+
+APFS nanoseconds and FILETIME counts also require decimal notation. exFAT date and time words, and its UTC offset byte, accept decimal or `0x`-prefixed hexadecimal notation. Other numeric metadata uses decimal notation.
 
 For an offset byte with its high validity bit set, the lower seven bits are a signed two's-complement count of 15-minute units. If the high bit is clear, the value is invalid and VERITY requires the explicit `utc_offset_minutes` metadata; no timezone is guessed. Access timestamps do not use an increment.
 
@@ -45,7 +47,20 @@ After installation, the same command is available through the `verity` console s
 verity examples/input.csv --output normalized.csv --comparisons comparisons.csv
 ```
 
-The normalized CSV contains the original columns and adds normalized endpoints, storage granularity, known actual resolution (`unknown` where absent), the resolution used for interval construction, validation status, and an explanation for unresolved values. Derived columns use a `normalized_` prefix and gain a `verity_` prefix if an input metadata column uses the same name. The comparison CSV contains every unordered pair of resolved rows, both event IDs, both directional weak-precedence results, and an explanation when neither interval precedes the other. For intervals `[a,b]` and `[c,d]`, the first precedes the second exactly when `b <= c`; boundary equality counts.
+The normalized CSV preserves all input columns and appends these columns:
+
+- `normalized_start_utc`, `normalized_end_utc`: closed interval endpoints, or empty for unresolved rows.
+- `normalized_storage_granularity_ns`: source format granularity when decoding succeeded, or empty when decoding failed.
+- `normalized_actual_resolution_ns`: supplied actual resolution when decoding succeeded, or `unknown` when absent or decoding failed.
+- `normalization_resolution_ns`: the resolution used for interval construction, or empty when decoding failed.
+- `normalized_validation_status`: `valid` or `unresolved`.
+- `normalized_explanation`: explains the interval and resolution for successful normalization, or gives the reason an input is unresolved.
+
+If an input column already has one of these derived names, VERITY prefixes that derived name with `verity_` (repeating the prefix if needed to avoid another collision).
+
+The comparison CSV contains one row for every unordered pair of successfully normalized rows. Its columns are `event_id_a`, `event_id_b`, `a_precedes_b`, `b_precedes_a`, and `explanation`. The explanation describes the precedence relation when one interval precedes the other, or explains that the order is undetermined when the intervals overlap. For intervals `[a,b]` and `[c,d]`, the first precedes the second exactly when `b <= c`; boundary equality counts.
+
+The CLI accepts the required positional `input_csv` path, `-o`/`--output` (default `normalized.csv`), and `-c`/`--comparisons` (default `comparisons.csv`). `-h`/`--help` displays usage.
 
 For exFAT input:
 

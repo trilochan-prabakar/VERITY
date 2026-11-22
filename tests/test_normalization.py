@@ -59,5 +59,17 @@ def test_target_domain_end_is_not_clamped():
         normalize_timestamp((1 << 63) - 1, 2)
 
 
+def test_normalization_accepts_exact_target_domain_boundaries():
+    minimum = normalize_timestamp(-(1 << 63), 1)
+    maximum = normalize_timestamp((1 << 63) - 1, 1)
+    assert minimum == TimestampInterval(-(1 << 63), -(1 << 63))
+    assert maximum == TimestampInterval((1 << 63) - 1, (1 << 63) - 1)
+
+
+def test_normalization_rejects_interval_start_below_target_domain():
+    with pytest.raises(ValueError, match="target domain"):
+        normalize_timestamp(-(1 << 63) - 1, 1)
+
+
 def test_utc_formatter_emits_nine_digits_and_handles_pre_epoch():
     assert format_utc_ns(-1) == "1969-12-31T23:59:59.999999999Z"
