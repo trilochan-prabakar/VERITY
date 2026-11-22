@@ -83,7 +83,7 @@ def run_csv(input_path: str | Path, normalized_path: str | Path, comparisons_pat
         writer = csv.DictWriter(destination, fieldnames=COMPARISON_COLUMNS)
         writer.writeheader()
         for (first_id, first_interval), (second_id, second_interval) in combinations(comparable, 2):
-            comparison = compare_with_explanation(first_interval, second_interval)
+            comparison = compare_with_explanation(first_interval,second_interval,first_event_id=first_id,second_event_id=second_id,)
             writer.writerow({
                 "event_id_a": first_id,
                 "event_id_b": second_id,

@@ -1,7 +1,12 @@
 import pytest
 
 from verity.models import TimestampInterval
-from verity.normalization import normalize_timestamp, compare_intervals, format_utc_ns
+from verity.normalization import (
+    compare_intervals,
+    compare_with_explanation,
+    format_utc_ns,
+    normalize_timestamp,
+)
 
 
 def test_normalization_preserves_closed_interval_resolution():
@@ -20,6 +25,27 @@ def test_intervals_touching_at_boundary_weakly_precede_in_one_direction():
 
 def test_overlapping_intervals_are_undetermined():
     assert compare_intervals(TimestampInterval(1, 4), TimestampInterval(3, 8)) == (False, False)
+
+
+def test_comparison_explains_when_first_interval_precedes_second():
+    result = compare_with_explanation(TimestampInterval(1, 2), TimestampInterval(5, 8))
+    assert result.first_precedes_second is True
+    assert result.second_precedes_first is False
+    assert "its interval ends at or before the second interval starts" in result.explanation
+
+
+def test_comparison_explains_when_second_interval_precedes_first():
+    result = compare_with_explanation(TimestampInterval(5, 8), TimestampInterval(1, 2))
+    assert result.first_precedes_second is False
+    assert result.second_precedes_first is True
+    assert "its interval ends at or before the first interval starts" in result.explanation
+
+
+def test_comparison_explains_when_intervals_overlap():
+    result = compare_with_explanation(TimestampInterval(1, 4), TimestampInterval(3, 8))
+    assert result.first_precedes_second is False
+    assert result.second_precedes_first is False
+    assert "overlap" in result.explanation
 
 
 def test_separated_intervals_can_precede_in_either_direction():

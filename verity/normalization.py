@@ -41,12 +41,32 @@ def compare_intervals(
 
 
 def compare_with_explanation(
-    first: TimestampInterval, second: TimestampInterval
+    first: TimestampInterval,
+    second: TimestampInterval,
+    first_event_id: str | None = None,
+    second_event_id: str | None = None,
 ) -> ComparisonResult:
     first_precedes, second_precedes = compare_intervals(first, second)
-    explanation = "" if first_precedes or second_precedes else (
-        "The intervals overlap, so their order is undetermined at the available precision."
-    )
+
+    first_name = f"Event '{first_event_id}'" if first_event_id else "The first timestamp"
+    second_name = f"event '{second_event_id}'" if second_event_id else "the second timestamp"
+
+    if first_precedes:
+        explanation = (
+            f"{first_name} precedes {second_name} because "
+            "its interval ends at or before the second interval starts."
+        )
+    elif second_precedes:
+        explanation = (
+            f"{second_name.capitalize()} precedes {first_name.lower()} because "
+            "its interval ends at or before the first interval starts."
+        )
+    else:
+        explanation = (
+            f"{first_name} and {second_name} overlap, "
+            "so their order is undetermined at the available precision."
+        )
+
     return ComparisonResult(first_precedes, second_precedes, explanation)
 
 

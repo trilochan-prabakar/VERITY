@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from verity.formats import decode_timestamp
 from verity.models import DecodedTimestamp, TimestampInterval
-from verity.normalization import normalize_decoded
+from verity.normalization import format_utc_ns, normalize_decoded
 
 
 @dataclass(frozen=True)
@@ -24,4 +24,16 @@ def validate_row(row: dict[str, str]) -> ValidationResult:
         return ValidationResult(decoded, None, "unresolved", str(error))
     if interval.start_ns > interval.end_ns:
         return ValidationResult(decoded, None, "unresolved", "normalized interval is empty")
-    return ValidationResult(decoded, interval, "valid", "")
+    resolution = (
+        decoded.actual_resolution_ns
+        if decoded.actual_resolution_ns is not None
+        else decoded.storage_granularity_ns
+    )
+
+    explanation = (
+        f"Normalized to the closed UTC interval "
+        f"[{format_utc_ns(interval.start_ns)}, {format_utc_ns(interval.end_ns)}] "
+        f"using a resolution of {resolution} ns."
+    )
+
+    return ValidationResult(decoded, interval, "valid", explanation)
